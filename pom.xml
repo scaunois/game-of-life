@@ -17,8 +17,8 @@
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
-      <version>1.18.22</version>
-      <scope>provided</scope>
+      <version>1.18.34</version>
+      <scope>compile</scope>
     </dependency>
 
     <dependency>
@@ -30,7 +30,12 @@
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
-      <version>17</version>
+      <version>17.0.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-fxml</artifactId>
+      <version>17.0.6</version>
     </dependency>
   </dependencies>
 
@@ -39,17 +44,26 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.0</version>
+        <version>3.11.0</version>
+        <configuration>
+          <annotationProcessorPaths>
+            <annotationProcessorPath>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>1.18.34</version>
+            </annotationProcessorPath>
+          </annotationProcessorPaths>
+        </configuration>
       </plugin>
 
-      <plugin>
+      <!--<plugin>
         <groupId>org.openjfx</groupId>
         <artifactId>javafx-maven-plugin</artifactId>
         <version>0.0.8</version>
         <configuration>
-          <mainClass>main.GameOfLifeApplication</mainClass>
+          <mainClass>io.scaunois.gameoflife.GameOfLifeApplication</mainClass>
         </configuration>
-      </plugin>
+      </plugin>-->
     </plugins>
   </build>
 
