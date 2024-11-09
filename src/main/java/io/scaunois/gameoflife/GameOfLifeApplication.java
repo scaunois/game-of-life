@@ -2,6 +2,8 @@ package io.scaunois.gameoflife;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleLongProperty;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -29,8 +31,8 @@ public class GameOfLifeApplication extends Application {
 
   // data
   private Cell[][] cells; // all cells of the simulation (including their state and their corresponding Pane on the visible grid)
-  private int generation = 0;
-  private int population = 0;
+  private SimpleLongProperty generation = new SimpleLongProperty(0);
+  private SimpleLongProperty population = new SimpleLongProperty(0);
 
   // layout
   private Scene scene;
@@ -78,7 +80,7 @@ public class GameOfLifeApplication extends Application {
     startButton = new Button("Start");
     stopButton = new Button("Stop");
     resetButton = new Button("Reset");
-    randomGenerationButton = new Button("Random generation");
+    randomGenerationButton = new Button("Generate random population");
 
     stopButton.setDisable(true);
 
@@ -87,14 +89,12 @@ public class GameOfLifeApplication extends Application {
       stopButton.setDisable(false);
       simulationThread = initSimulationThread();
       simulationThread.start();
-      System.out.println("Simulation is running.");
     });
 
     stopButton.setOnAction(event -> {
       simulationThread.stop();
       startButton.setDisable(false);
       stopButton.setDisable(true);
-      System.out.println("Simulation stopped.");
     });
 
     resetButton.setOnAction(event -> {
@@ -104,12 +104,8 @@ public class GameOfLifeApplication extends Application {
       stopButton.setDisable(true);
       initEmptyGrid();
       mainContainer.getChildren().set(1, gridPane);
-      generation = 0;
-      population = 0;
-      generationText.setText("Generation " + generation);
-      populationText.setText("Population : " + population);
-      System.out.println("Grid and population reset.");
-      System.out.println("Simulation stopped.");
+      generation.set(0);
+      population.set(0);
     });
 
     randomGenerationButton.setOnAction(event -> generateRandomAliveCells());
@@ -125,10 +121,8 @@ public class GameOfLifeApplication extends Application {
     var thread = new Thread(() -> {
 
       Runnable updater = () -> {
-        generation++;
+        generation.set(generation.get() + 1);
         simulateNextGeneration();
-        generationText.setText("Generation " + generation);
-        populationText.setText("Population : " + population);
       };
 
       while (true) {
@@ -146,7 +140,7 @@ public class GameOfLifeApplication extends Application {
    * Randomly choose some cells and set them alive!
    */
   private void generateRandomAliveCells() {
-    population = 0;
+    population.set(0);
 
     for (int i = 0; i < cells.length; i++) {
       for (int j = 0; j < cells[i].length; j++) {
@@ -155,7 +149,7 @@ public class GameOfLifeApplication extends Application {
 
         if (RandomUtils.nextInt(0, 100) >= 85) { // cell is alive with probability of 15%
           cell.setAlive(true);
-          population++;
+          population.set(population.get() + 1);
         }
 
         cell.updatePane();
@@ -178,8 +172,7 @@ public class GameOfLifeApplication extends Application {
         pane.addEventHandler(MOUSE_CLICKED, event -> {
           if (simulationThread == null || !simulationThread.isAlive()) {
             cell.toggleCellState();
-            population += cell.isAlive() ? +1 : -1;
-            populationText.setText("Population : " + population);
+            population.set(population.get() + (cell.isAlive() ? +1 : -1));
           }
         });
 
@@ -203,10 +196,14 @@ public class GameOfLifeApplication extends Application {
   private void initInfoArea() {
     infoArea = new VBox();
 
-    generationText = new Text("Generation " + generation);
+    generationText = new Text();
     generationText.setFont(Font.font(16));
-    populationText = new Text("Population : " + population);
+    generationText.textProperty().bind(generation.asString("Generation %d"));
+
+    populationText = new Text();
     populationText.setFont(Font.font(16));
+    populationText.textProperty().bind(population.asString("Population: %d"));
+
     infoArea.getChildren().add(generationText);
     infoArea.getChildren().add(populationText);
   }
@@ -238,13 +235,13 @@ public class GameOfLifeApplication extends Application {
         if (cell.isMarkedAsDead()) {
           cell.die();
           cell.setMarkedAsDead(false);
-          population--;
+          population.set(population.get() - 1);
         }
 
         if (cell.isMarkedAsAlive()) {
           cell.becomeAlive();
           cell.setMarkedAsAlive(false);
-          population++;
+          population.set(population.get() + 1);
         }
       }
     }
