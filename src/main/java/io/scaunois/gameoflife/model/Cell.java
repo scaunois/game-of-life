@@ -1,5 +1,6 @@
-package model;
+package io.scaunois.gameoflife.model;
 
+import io.scaunois.gameoflife.constant.BackgroundPaintColor;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.Pane;
@@ -7,7 +8,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import lombok.Getter;
 import lombok.Setter;
-import util.BackgroundUtil;
+import io.scaunois.gameoflife.util.StyleUtil;
 
 @Getter
 @Setter
@@ -21,8 +22,8 @@ public class Cell {
   public Cell() {
     alive = false;
     pane = new Pane();
-    pane.setBorder(BackgroundUtil.getCellBorder());
-    pane.setBackground(BackgroundUtil.getDefaultBackground());
+    pane.setBorder(StyleUtil.getCellBorder());
+    pane.setBackground(StyleUtil.getDefaultBackground());
   }
 
   public boolean isDead() {
@@ -48,7 +49,7 @@ public class Cell {
   }
 
   public void updatePane() {
-    Paint cellColor = alive ? Color.BLACK : Color.WHITE;
+    var cellColor = alive ? BackgroundPaintColor.ALIVE_CELL_COLOR : BackgroundPaintColor.DEAD_CELL_COLOR;
     BackgroundFill backgroundFill = new BackgroundFill(cellColor, null, null);
     pane.setBackground(new Background(backgroundFill));
   }
