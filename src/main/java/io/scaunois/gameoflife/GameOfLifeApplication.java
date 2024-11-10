@@ -1,10 +1,16 @@
 package io.scaunois.gameoflife;
 
+import io.scaunois.gameoflife.constant.GeneratedPopulationSize;
+import io.scaunois.gameoflife.model.Cell;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.property.SimpleLongProperty;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
@@ -12,40 +18,32 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
-import io.scaunois.gameoflife.model.Cell;
 import org.apache.commons.lang3.RandomUtils;
-import io.scaunois.gameoflife.util.StyleUtil;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.CELL_SIZE;
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.COLUMNS_COUNT;
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.DEFAULT_DELAY_BETWEEN_GENERATIONS;
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.ROWS_COUNT;
+import static io.scaunois.gameoflife.constant.GeneratedPopulationSize.MEDIUM;
+import static io.scaunois.gameoflife.constant.GeneratedPopulationSize.SMALL;
 import static javafx.scene.input.MouseEvent.MOUSE_CLICKED;
 
 public class GameOfLifeApplication extends Application {
 
   // data
   private Cell[][] cells; // all cells of the simulation (including their state and their corresponding Pane on the visible grid)
-  private int generation = 0;
-  private int population = 0;
+  private final SimpleLongProperty generation = new SimpleLongProperty(0);
+  private final SimpleLongProperty population = new SimpleLongProperty(0);
 
   // layout
   private Scene scene;
   private VBox mainContainer;
-  private ToolBar toolbar;
   private GridPane gridPane;
-  private VBox infoArea;
-  private Text generationText;
-  private Text populationText;
-
-  // controls (toolbar)
-  private Button startButton;
-  private Button stopButton;
-  private Button resetButton;
-  private Button randomGenerationButton;
 
   private Thread simulationThread;
 
@@ -58,11 +56,11 @@ public class GameOfLifeApplication extends Application {
 
     // init layout
 
-    initToolbar();
+    var toolbars = initToolbars();
     initEmptyGrid();
-    initInfoArea();
+    var infoArea = initInfoArea();
 
-    mainContainer = new VBox(toolbar, gridPane, infoArea);
+    mainContainer = new VBox(toolbars.get(0), toolbars.get(1), gridPane, infoArea);
     VBox.setMargin(infoArea, new Insets(10, 0, 0, 0));
     scene = new Scene(mainContainer, 1000, 600);
     primaryStage.setTitle("Game of Life");
@@ -72,13 +70,15 @@ public class GameOfLifeApplication extends Application {
     primaryStage.show();
   }
 
-  private void initToolbar() {
-    toolbar = new ToolBar();
+  private List<ToolBar> initToolbars() {
 
-    startButton = new Button("Start");
-    stopButton = new Button("Stop");
-    resetButton = new Button("Reset");
-    randomGenerationButton = new Button("Random generation");
+    // toolbar 1
+
+    var toolbar1 = new ToolBar();
+
+    var startButton = new Button("Start");
+    var stopButton = new Button("Stop");
+    var resetButton = new Button("Reset");
 
     stopButton.setDisable(true);
 
@@ -87,14 +87,12 @@ public class GameOfLifeApplication extends Application {
       stopButton.setDisable(false);
       simulationThread = initSimulationThread();
       simulationThread.start();
-      System.out.println("Simulation is running.");
     });
 
     stopButton.setOnAction(event -> {
       simulationThread.stop();
       startButton.setDisable(false);
       stopButton.setDisable(true);
-      System.out.println("Simulation stopped.");
     });
 
     resetButton.setOnAction(event -> {
@@ -103,32 +101,61 @@ public class GameOfLifeApplication extends Application {
       startButton.setDisable(false);
       stopButton.setDisable(true);
       initEmptyGrid();
-      mainContainer.getChildren().set(1, gridPane);
-      generation = 0;
-      population = 0;
-      generationText.setText("Generation " + generation);
-      populationText.setText("Population : " + population);
-      System.out.println("Grid and population reset.");
-      System.out.println("Simulation stopped.");
+      mainContainer.getChildren().set(2, gridPane);
+      generation.set(0);
+      population.set(0);
     });
 
-    randomGenerationButton.setOnAction(event -> generateRandomAliveCells());
+    var toolbar1Items = toolbar1.getItems();
+    toolbar1Items.add(startButton);
+    toolbar1Items.add(stopButton);
+    toolbar1Items.add(resetButton);
 
-    var toolbarButtons = toolbar.getItems();
-    toolbarButtons.add(startButton);
-    toolbarButtons.add(stopButton);
-    toolbarButtons.add(resetButton);
-    toolbarButtons.add(randomGenerationButton);
+    // toolbar 2
+
+    var toolbar2 = new ToolBar();
+
+    var populationSizeLabel = new Label("Population size");
+
+    var smallPopulationRadioButton = new RadioButton("Small");
+    smallPopulationRadioButton.setUserData(SMALL);
+    var mediumPopulationRadioButton = new RadioButton("Medium");
+    mediumPopulationRadioButton.setUserData(GeneratedPopulationSize.MEDIUM);
+    var largePopulationRadioButton = new RadioButton("Large");
+    largePopulationRadioButton.setUserData(GeneratedPopulationSize.LARGE);
+
+    var radioButtonsGroup = new ToggleGroup();
+    smallPopulationRadioButton.setToggleGroup(radioButtonsGroup);
+    mediumPopulationRadioButton.setToggleGroup(radioButtonsGroup);
+    largePopulationRadioButton.setToggleGroup(radioButtonsGroup);
+
+    AtomicReference<GeneratedPopulationSize> generatedPopulationSize = new AtomicReference<>();
+    radioButtonsGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+      if (newToggle != null) {
+        generatedPopulationSize.set((GeneratedPopulationSize) newToggle.getUserData());
+      }
+    });
+    mediumPopulationRadioButton.setSelected(true); // default generated population size
+
+    var randomGenerationButton = new Button("Random population");
+    randomGenerationButton.setOnAction(event -> generateRandomAliveCells(generatedPopulationSize.get()));
+
+    var toolbar2Items = toolbar2.getItems();
+    toolbar2Items.add(populationSizeLabel);
+    toolbar2Items.add(smallPopulationRadioButton);
+    toolbar2Items.add(mediumPopulationRadioButton);
+    toolbar2Items.add(largePopulationRadioButton);
+    toolbar2Items.add(randomGenerationButton);
+
+    return List.of(toolbar1, toolbar2);
   }
 
   private Thread initSimulationThread() {
     var thread = new Thread(() -> {
 
       Runnable updater = () -> {
-        generation++;
+        generation.set(generation.get() + 1);
         simulateNextGeneration();
-        generationText.setText("Generation " + generation);
-        populationText.setText("Population : " + population);
       };
 
       while (true) {
@@ -145,17 +172,41 @@ public class GameOfLifeApplication extends Application {
   /**
    * Randomly choose some cells and set them alive!
    */
-  private void generateRandomAliveCells() {
-    population = 0;
+  private void generateRandomAliveCells(GeneratedPopulationSize generatedPopulationSize) {
+    population.set(0);
 
-    for (int i = 0; i < cells.length; i++) {
-      for (int j = 0; j < cells[i].length; j++) {
+    int MIN_I = switch (generatedPopulationSize) {
+      case SMALL -> ROWS_COUNT / 2 - 3;
+      case MEDIUM -> ROWS_COUNT / 2 - 6;
+      case LARGE -> 0;
+    };
+
+    int MAX_I = switch (generatedPopulationSize) {
+      case SMALL -> ROWS_COUNT / 2 + 3;
+      case MEDIUM -> ROWS_COUNT / 2 + 6;
+      case LARGE -> ROWS_COUNT;
+    };
+
+    int MIN_J = switch (generatedPopulationSize) {
+      case SMALL -> COLUMNS_COUNT / 2 - 3;
+      case MEDIUM -> COLUMNS_COUNT / 2 - 6;
+      case LARGE -> 0;
+    };
+
+    int MAX_J = switch (generatedPopulationSize) {
+      case SMALL -> COLUMNS_COUNT / 2 + 3;
+      case MEDIUM -> COLUMNS_COUNT / 2 + 6;
+      case LARGE -> COLUMNS_COUNT;
+    };
+
+    for (int i = MIN_I; i < MAX_I; i++) {
+      for (int j = MIN_J; j < MAX_J; j++) {
         Cell cell = cells[i][j];
         cell.setAlive(false);
 
-        if (RandomUtils.nextInt(0, 100) >= 85) { // cell is alive with probability of 15%
+        if (RandomUtils.nextInt(0, 100) >= 80) { // cell is alive with probability of 20%
           cell.setAlive(true);
-          population++;
+          population.set(population.get() + 1);
         }
 
         cell.updatePane();
@@ -178,8 +229,7 @@ public class GameOfLifeApplication extends Application {
         pane.addEventHandler(MOUSE_CLICKED, event -> {
           if (simulationThread == null || !simulationThread.isAlive()) {
             cell.toggleCellState();
-            population += cell.isAlive() ? +1 : -1;
-            populationText.setText("Population : " + population);
+            population.set(population.get() + (cell.isAlive() ? +1 : -1));
           }
         });
 
@@ -200,15 +250,21 @@ public class GameOfLifeApplication extends Application {
     }
   }
 
-  private void initInfoArea() {
-    infoArea = new VBox();
+  private VBox initInfoArea() {
+    var infoArea = new VBox();
 
-    generationText = new Text("Generation " + generation);
+    var generationText = new Text();
     generationText.setFont(Font.font(16));
-    populationText = new Text("Population : " + population);
+    generationText.textProperty().bind(generation.asString("Generation %d"));
+
+    var populationText = new Text();
     populationText.setFont(Font.font(16));
+    populationText.textProperty().bind(population.asString("Population: %d"));
+
     infoArea.getChildren().add(generationText);
     infoArea.getChildren().add(populationText);
+
+    return infoArea;
   }
 
   /**
@@ -238,13 +294,13 @@ public class GameOfLifeApplication extends Application {
         if (cell.isMarkedAsDead()) {
           cell.die();
           cell.setMarkedAsDead(false);
-          population--;
+          population.set(population.get() - 1);
         }
 
         if (cell.isMarkedAsAlive()) {
           cell.becomeAlive();
           cell.setMarkedAsAlive(false);
-          population++;
+          population.set(population.get() + 1);
         }
       }
     }
