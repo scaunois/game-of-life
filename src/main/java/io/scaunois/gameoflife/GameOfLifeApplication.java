@@ -4,12 +4,15 @@ import io.scaunois.gameoflife.constant.GeneratedPopulationSize;
 import io.scaunois.gameoflife.model.Cell;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
+import javafx.scene.control.Spinner;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.GridPane;
@@ -28,9 +31,10 @@ import java.util.stream.Stream;
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.CELL_SIZE;
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.COLUMNS_COUNT;
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.DEFAULT_DELAY_BETWEEN_GENERATIONS;
+import static io.scaunois.gameoflife.constant.GameOfLifeConstants.DEFAULT_RANDOM_POPULATION_DENSITY;
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.ROWS_COUNT;
-import static io.scaunois.gameoflife.constant.GeneratedPopulationSize.MEDIUM;
 import static io.scaunois.gameoflife.constant.GeneratedPopulationSize.SMALL;
+import static io.scaunois.gameoflife.util.ToolbarUtil.defaultSpacer;
 import static javafx.scene.input.MouseEvent.MOUSE_CLICKED;
 
 public class GameOfLifeApplication extends Application {
@@ -41,7 +45,6 @@ public class GameOfLifeApplication extends Application {
   private final SimpleLongProperty population = new SimpleLongProperty(0);
 
   // layout
-  private Scene scene;
   private VBox mainContainer;
   private GridPane gridPane;
 
@@ -62,9 +65,8 @@ public class GameOfLifeApplication extends Application {
 
     mainContainer = new VBox(toolbars.get(0), toolbars.get(1), gridPane, infoArea);
     VBox.setMargin(infoArea, new Insets(10, 0, 0, 0));
-    scene = new Scene(mainContainer, 1000, 600);
     primaryStage.setTitle("Game of Life");
-    primaryStage.setScene(scene);
+    primaryStage.setScene(new Scene(mainContainer, 1000, 600));
     primaryStage.setResizable(false);
 
     primaryStage.show();
@@ -115,13 +117,11 @@ public class GameOfLifeApplication extends Application {
 
     var toolbar2 = new ToolBar();
 
-    var populationSizeLabel = new Label("Population size");
-
-    var smallPopulationRadioButton = new RadioButton("Small");
+    var smallPopulationRadioButton = new RadioButton("S");
     smallPopulationRadioButton.setUserData(SMALL);
-    var mediumPopulationRadioButton = new RadioButton("Medium");
+    var mediumPopulationRadioButton = new RadioButton("M");
     mediumPopulationRadioButton.setUserData(GeneratedPopulationSize.MEDIUM);
-    var largePopulationRadioButton = new RadioButton("Large");
+    var largePopulationRadioButton = new RadioButton("L");
     largePopulationRadioButton.setUserData(GeneratedPopulationSize.LARGE);
 
     var radioButtonsGroup = new ToggleGroup();
@@ -137,14 +137,24 @@ public class GameOfLifeApplication extends Application {
     });
     mediumPopulationRadioButton.setSelected(true); // default generated population size
 
-    var randomGenerationButton = new Button("Random population");
-    randomGenerationButton.setOnAction(event -> generateRandomAliveCells(generatedPopulationSize.get()));
+    IntegerProperty generatedPopulationDensity = new SimpleIntegerProperty(DEFAULT_RANDOM_POPULATION_DENSITY); // default generated population density
+    var populationDensitySpinner = new Spinner<Integer>(0, 100, generatedPopulationDensity.get());
+    populationDensitySpinner.setEditable(true);
+    populationDensitySpinner.setPrefWidth(60);
+    populationDensitySpinner.valueProperty().addListener((obs, oldValue, newValue) -> generatedPopulationDensity.set(newValue));
+
+    var randomGenerationButton = new Button("Generate population");
+    randomGenerationButton.setOnAction(event -> generateRandomAliveCells(generatedPopulationSize.get(), generatedPopulationDensity.get()));
 
     var toolbar2Items = toolbar2.getItems();
-    toolbar2Items.add(populationSizeLabel);
+    toolbar2Items.add(new Label("Pop. size:"));
     toolbar2Items.add(smallPopulationRadioButton);
     toolbar2Items.add(mediumPopulationRadioButton);
     toolbar2Items.add(largePopulationRadioButton);
+    toolbar2Items.add(defaultSpacer());
+    toolbar2Items.add(new Label("Pop. density (%):"));
+    toolbar2Items.add(populationDensitySpinner);
+    toolbar2Items.add(defaultSpacer());
     toolbar2Items.add(randomGenerationButton);
 
     return List.of(toolbar1, toolbar2);
@@ -172,7 +182,7 @@ public class GameOfLifeApplication extends Application {
   /**
    * Randomly choose some cells and set them alive!
    */
-  private void generateRandomAliveCells(GeneratedPopulationSize generatedPopulationSize) {
+  private void generateRandomAliveCells(GeneratedPopulationSize generatedPopulationSize, int generatedPopulationDensity) {
     population.set(0);
 
     int MIN_I = switch (generatedPopulationSize) {
@@ -204,7 +214,7 @@ public class GameOfLifeApplication extends Application {
         Cell cell = cells[i][j];
         cell.setAlive(false);
 
-        if (RandomUtils.nextInt(0, 100) >= 80) { // cell is alive with probability of 20%
+        if (RandomUtils.nextInt(0, 100) >= 100 - generatedPopulationDensity) {
           cell.setAlive(true);
           population.set(population.get() + 1);
         }
