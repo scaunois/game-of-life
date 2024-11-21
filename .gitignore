@@ -13,4 +13,5 @@ buildNumber.properties
 
 # Intellij IDEA
 .idea
+game-of-life.iml
 

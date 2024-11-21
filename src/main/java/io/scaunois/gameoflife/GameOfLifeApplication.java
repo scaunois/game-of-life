@@ -12,14 +12,18 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToolBar;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.scene.transform.Scale;
 import javafx.stage.Stage;
 import org.apache.commons.lang3.RandomUtils;
 
@@ -44,9 +48,7 @@ public class GameOfLifeApplication extends Application {
   private final SimpleLongProperty generation = new SimpleLongProperty(0);
   private final SimpleLongProperty population = new SimpleLongProperty(0);
 
-  // layout
   private VBox mainContainer;
-  private GridPane gridPane;
 
   private Thread simulationThread;
 
@@ -57,13 +59,17 @@ public class GameOfLifeApplication extends Application {
   @Override
   public void start(Stage primaryStage) {
 
-    // init layout
-
     var toolbars = initToolbars();
-    initEmptyGrid();
+    var gridPane = initGrid();
+    var scrollPane = initScrollPane(gridPane);
+
+    var zoomOutButton = (Button) toolbars.get(0).getItems().get(4);
+    var zoomInButton = (Button) toolbars.get(0).getItems().get(5);
+    enableZooming(zoomOutButton, zoomInButton, gridPane);
+
     var infoArea = initInfoArea();
 
-    mainContainer = new VBox(toolbars.get(0), toolbars.get(1), gridPane, infoArea);
+    mainContainer = new VBox(toolbars.get(0), toolbars.get(1), scrollPane, infoArea);
     VBox.setMargin(infoArea, new Insets(10, 0, 0, 0));
     primaryStage.setTitle("Game of Life");
     primaryStage.setScene(new Scene(mainContainer, 1000, 600));
@@ -81,6 +87,18 @@ public class GameOfLifeApplication extends Application {
     var startButton = new Button("Start");
     var stopButton = new Button("Stop");
     var resetButton = new Button("Reset");
+
+    // zoom out button
+    var zoomOutImageView = new ImageView(new Image(getClass().getResource("/images/zoom_out.png").toExternalForm()));
+    zoomOutImageView.setFitWidth(16);
+    zoomOutImageView.setFitHeight(16);
+    var zoomOutButton = new Button(null, zoomOutImageView);
+
+    // zoom in button
+    var zoomInImageView = new ImageView(new Image(getClass().getResource("/images/zoom_in.png").toExternalForm()));
+    zoomInImageView.setFitWidth(16);
+    zoomInImageView.setFitHeight(16);
+    var zoomInButton = new Button(null, zoomInImageView);
 
     stopButton.setDisable(true);
 
@@ -102,8 +120,10 @@ public class GameOfLifeApplication extends Application {
         simulationThread.stop();
       startButton.setDisable(false);
       stopButton.setDisable(true);
-      initEmptyGrid();
-      mainContainer.getChildren().set(2, gridPane);
+      var newGridPane = initGrid();
+      enableZooming(zoomOutButton, zoomInButton, newGridPane);
+      var scrollPane = (ScrollPane) mainContainer.getChildren().get(2);
+      scrollPane.setContent(newGridPane);
       generation.set(0);
       population.set(0);
     });
@@ -112,6 +132,9 @@ public class GameOfLifeApplication extends Application {
     toolbar1Items.add(startButton);
     toolbar1Items.add(stopButton);
     toolbar1Items.add(resetButton);
+    toolbar1Items.add(defaultSpacer());
+    toolbar1Items.add(zoomOutButton);
+    toolbar1Items.add(zoomInButton);
 
     // toolbar 2
 
@@ -129,7 +152,7 @@ public class GameOfLifeApplication extends Application {
     mediumPopulationRadioButton.setToggleGroup(radioButtonsGroup);
     largePopulationRadioButton.setToggleGroup(radioButtonsGroup);
 
-    AtomicReference<GeneratedPopulationSize> generatedPopulationSize = new AtomicReference<>();
+    var generatedPopulationSize = new AtomicReference<GeneratedPopulationSize>();
     radioButtonsGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
       if (newToggle != null) {
         generatedPopulationSize.set((GeneratedPopulationSize) newToggle.getUserData());
@@ -160,6 +183,10 @@ public class GameOfLifeApplication extends Application {
     return List.of(toolbar1, toolbar2);
   }
 
+  private ScrollPane initScrollPane(GridPane gridPane) {
+    return new ScrollPane(gridPane);
+  }
+
   private Thread initSimulationThread() {
     var thread = new Thread(() -> {
 
@@ -186,26 +213,26 @@ public class GameOfLifeApplication extends Application {
     population.set(0);
 
     int MIN_I = switch (generatedPopulationSize) {
-      case SMALL -> ROWS_COUNT / 2 - 3;
-      case MEDIUM -> ROWS_COUNT / 2 - 6;
+      case SMALL -> 18;
+      case MEDIUM -> 15;
       case LARGE -> 0;
     };
 
     int MAX_I = switch (generatedPopulationSize) {
-      case SMALL -> ROWS_COUNT / 2 + 3;
-      case MEDIUM -> ROWS_COUNT / 2 + 6;
+      case SMALL -> 24;
+      case MEDIUM -> 27;
       case LARGE -> ROWS_COUNT;
     };
 
     int MIN_J = switch (generatedPopulationSize) {
-      case SMALL -> COLUMNS_COUNT / 2 - 3;
-      case MEDIUM -> COLUMNS_COUNT / 2 - 6;
+      case SMALL -> 46;
+      case MEDIUM -> 42;
       case LARGE -> 0;
     };
 
     int MAX_J = switch (generatedPopulationSize) {
-      case SMALL -> COLUMNS_COUNT / 2 + 3;
-      case MEDIUM -> COLUMNS_COUNT / 2 + 6;
+      case SMALL -> 52;
+      case MEDIUM -> 54;
       case LARGE -> COLUMNS_COUNT;
     };
 
@@ -224,11 +251,13 @@ public class GameOfLifeApplication extends Application {
     }
   }
 
-  private void initEmptyGrid() {
+  private GridPane initGrid() {
     initCells();
 
-    gridPane = new GridPane();
-    gridPane.setStyle("-fx-border-color: black; -fx-border-width: 2px; -fx-padding: 4px;");
+    var gridPane = new GridPane();
+    gridPane.setCache(true);
+    var scaleTransform = new Scale(1, 1); // initial scale = 1x
+    gridPane.getTransforms().add(scaleTransform);
 
     for (int i = 0; i < cells.length; i++) {
       for (int j = 0; j < cells[i].length; j++) {
@@ -246,6 +275,8 @@ public class GameOfLifeApplication extends Application {
         gridPane.add(pane, j, i);
       }
     }
+
+    return gridPane;
   }
 
   /**
@@ -258,6 +289,30 @@ public class GameOfLifeApplication extends Application {
         cells[i][j] = new Cell();
       }
     }
+  }
+
+  private void enableZooming(Button zoomOutButton, Button zoomInButton, GridPane gridPane) {
+    zoomInButton.setDisable(true); // zoom in button is initially disabled since the scale is 1x initially
+
+    var scaleTransform = (Scale) gridPane.getTransforms().get(0);
+
+    zoomOutButton.setOnAction(event -> {
+      double currentZoomFactor = scaleTransform.getX();
+      double newZoomFactor = currentZoomFactor - 0.1;
+      scaleTransform.setX(newZoomFactor);
+      scaleTransform.setY(newZoomFactor);
+      zoomOutButton.setDisable(newZoomFactor <= 0.4);
+      zoomInButton.setDisable(newZoomFactor == 1);
+    });
+
+    zoomInButton.setOnAction(event -> {
+      double currentZoomFactor = scaleTransform.getX();
+      double newZoomFactor = currentZoomFactor + 0.1;
+      scaleTransform.setX(newZoomFactor);
+      scaleTransform.setY(newZoomFactor);
+      zoomOutButton.setDisable(newZoomFactor <= 0.4);
+      zoomInButton.setDisable(newZoomFactor == 1);
+    });
   }
 
   private VBox initInfoArea() {
