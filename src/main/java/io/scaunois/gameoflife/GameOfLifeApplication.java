@@ -18,6 +18,7 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToolBar;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
@@ -39,6 +40,8 @@ import static io.scaunois.gameoflife.constant.GameOfLifeConstants.DEFAULT_RANDOM
 import static io.scaunois.gameoflife.constant.GameOfLifeConstants.ROWS_COUNT;
 import static io.scaunois.gameoflife.constant.GeneratedPopulationSize.SMALL;
 import static io.scaunois.gameoflife.util.ToolbarUtil.defaultSpacer;
+import static javafx.scene.input.MouseButton.PRIMARY;
+import static javafx.scene.input.MouseButton.SECONDARY;
 import static javafx.scene.input.MouseEvent.MOUSE_CLICKED;
 
 public class GameOfLifeApplication extends Application {
@@ -265,10 +268,31 @@ public class GameOfLifeApplication extends Application {
         Pane pane = cell.getPane();
         pane.setMinSize(CELL_SIZE, CELL_SIZE);
 
+        // handle simple mouse click
         pane.addEventHandler(MOUSE_CLICKED, event -> {
           if (simulationThread == null || !simulationThread.isAlive()) {
             cell.toggleCellState();
             population.set(population.get() + (cell.isAlive() ? +1 : -1));
+          }
+        });
+
+        // handle mouse drag-and-drop
+
+        pane.setOnDragDetected(event -> {
+          pane.startFullDrag();
+          if (event.getButton() == PRIMARY) {
+            cell.becomeAlive();
+          } else if (event.getButton() == SECONDARY) {
+            cell.die();
+          }
+          event.consume();
+        });
+
+        pane.setOnMouseDragEntered(event -> {
+          if (event.getButton() == PRIMARY) {
+            cell.becomeAlive();
+          } else if (event.getButton() == SECONDARY) {
+            cell.die();
           }
         });
 
